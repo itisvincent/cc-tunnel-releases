@@ -22,39 +22,39 @@
   $folder = Join-Path ([IO.Path]::GetTempPath()) "ccdt-install-$(Get-Random)"
   New-Item -ItemType Directory $folder | Out-Null
   try {
-    Write-Host "正在下载 ccdt $version ……"
+    Write-Host "Downloading ccdt $version..."
     $archive = Join-Path $folder $name
     $sums = Join-Path $folder 'SHA256SUMS'
     try {
       Invoke-WebRequest "$base/$name" -OutFile $archive -UseBasicParsing
       Invoke-WebRequest "$base/SHA256SUMS" -OutFile $sums -UseBasicParsing
     } catch {
-      throw "下载 ccdt $version 失败：$($_.Exception.Message)。请确认版本号与网络；需要代理时先设置系统代理。"
+      throw "Failed to download ccdt ${version}: $($_.Exception.Message). Check the version and network; set a system proxy if needed."
     }
     $expected = Get-Content $sums | ForEach-Object {
       $fields = $_.Trim() -split '\s+'
       if ($fields[1] -eq $name -or $fields[1] -eq "*$name") { $fields[0] }
     } | Select-Object -First 1
-    if (-not $expected) { throw "$version 的校验清单里没有 $name。" }
+    if (-not $expected) { throw "$name not found in SHA256SUMS for $version." }
     if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne $expected) {
-      throw "下载的 $name 校验不符，没有安装。"
+      throw "Checksum mismatch for $name; not installed."
     }
     # The system's own tar, which reads .zip; another one may come first on the PATH.
     $tar = Join-Path $env:SystemRoot 'System32\tar.exe'
     if ($env:CCDT_DOWNLOAD_ONLY) {
       & $tar -xf $archive -C (Get-Location).Path
-      if ($LASTEXITCODE) { throw '解压失败。' }
-      Write-Host "已校验并解压到 $(Join-Path (Get-Location).Path 'ccdt')，没有安装。"
+      if ($LASTEXITCODE) { throw 'Extraction failed.' }
+      Write-Host "Verified and extracted to $(Join-Path (Get-Location).Path 'ccdt') (not installed)."
       return
     }
     & $tar -xf $archive -C $folder
-    if ($LASTEXITCODE) { throw '解压失败。' }
+    if ($LASTEXITCODE) { throw 'Extraction failed.' }
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $folder 'ccdt\install.ps1')
-    if ($LASTEXITCODE) { throw '安装脚本没有完成。' }
+    if ($LASTEXITCODE) { throw 'Install script failed.' }
     # The install script added ccdt to the user's PATH, which windows opened from now on read; this one is told too.
     $target = Join-Path $env:LOCALAPPDATA 'Programs\ccdt'
     if (-not (($env:Path -split ';') -contains $target)) { $env:Path = "$env:Path;$target" }
-    Write-Host '这个窗口里也可以直接运行 ccdt 了。'
+    Write-Host 'You can now run ccdt directly in this window.'
   } finally {
     Remove-Item -Recurse -Force $folder -ErrorAction SilentlyContinue
   }
