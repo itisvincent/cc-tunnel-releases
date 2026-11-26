@@ -152,7 +152,7 @@ fetch_release() {
     echo "Cannot reach releases page (check internet access to github.com); keeping current version $(version_of)."
     return
   fi
-  name="$(awk '$2 ~ /^cc-desk-tunnel-server-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$/ { print $2 }' "$FETCHED/SHA256SUMS" | head -n 1)"
+  name="$(awk '{ sub(/^\*/, "", $2); if ($2 ~ /^cc-desk-tunnel-server-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$/) { print $2; exit } }' "$FETCHED/SHA256SUMS")"
   [[ -n "$name" ]] || fail "The release has no server archive."
   version="${name#cc-desk-tunnel-server-}"; version="${version%.tar.gz}"
   # Nothing newer, or the version asked for is here already. This is also how a manage.sh from before the images hands
@@ -167,7 +167,7 @@ fetch_release() {
   echo "Downloading $name..."
   curl -fL --connect-timeout 20 --max-time 600 --progress-bar -o "$FETCHED/$name" \
     "$releases/download/v$version/$name" || fail "Download failed."
-  (cd "$FETCHED" && grep "  $name\$" SHA256SUMS | sha256sum -c - >/dev/null) || fail "The archive does not match SHA256SUMS."
+  (cd "$FETCHED" && awk -v name="$name" '$2 == name || $2 == "*" name' SHA256SUMS | sha256sum -c - >/dev/null) || fail "The archive does not match SHA256SUMS."
   ARCHIVE="$FETCHED/$name"
 }
 # `sudo cc-desk-tunnel COMMAND` from anywhere, for the installation managed with the default configuration.
