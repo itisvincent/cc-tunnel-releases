@@ -71,7 +71,7 @@ main() {
     echo "Checking latest release (github.com/${REPO})..."
     curl -fsSL --connect-timeout 20 --max-time 60 -o "$temp/SHA256SUMS" "$releases/SHA256SUMS" \
       || fail "Failed to fetch release metadata. Check internet access to github.com and whether the version exists."
-    name="$(awk '$2 ~ /^cc-desk-tunnel-server-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$/ { print $2 }' "$temp/SHA256SUMS" | head -n 1)"
+    name="$(awk '{ sub(/^\*/, "", $2); if ($2 ~ /^cc-desk-tunnel-server-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$/) { print $2; exit } }' "$temp/SHA256SUMS")"
     [[ -n "$name" ]] || fail "No server package found in release SHA256SUMS."
     latest="${name#cc-desk-tunnel-server-}"; latest="${latest%.tar.gz}"
 
@@ -98,7 +98,7 @@ NOTICE
     echo "Downloading $name..."
     curl -fL --connect-timeout 20 --max-time 600 --progress-bar -o "$temp/$name" \
       "https://github.com/$REPO/releases/download/v$latest/$name" || fail "Download failed."
-    (cd "$temp" && grep "  $name\$" SHA256SUMS | sha256sum -c - >/dev/null) || fail "Checksum verification failed; aborted."
+    (cd "$temp" && awk -v name="$name" '$2 == name || $2 == "*" name' SHA256SUMS | sha256sum -c - >/dev/null) || fail "Checksum verification failed; aborted."
     if [[ "$1" = upgrade ]]; then
       # A manage.sh older than this archive unpacks it and hands over to the new one, which need not fetch it again.
       CC_DESK_TUNNEL_UNPACKED=1 bash "$TARGET/deploy/manage.sh" upgrade --from "$temp/$name"
